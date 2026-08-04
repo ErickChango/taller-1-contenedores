@@ -1,0 +1,49 @@
+services:
+  # Servicio de Base de Datos PostgreSQL
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: postgres-media-db
+    environment:
+      POSTGRES_DB: mediadb
+      POSTGRES_USER: mediauser
+      POSTGRES_PASSWORD: mediapass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - media-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mediauser -d mediadb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Servicio Backend Spring Boot
+  spring-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spring-media-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/mediadb
+      SPRING_DATASOURCE_USERNAME: mediauser
+      SPRING_DATASOURCE_PASSWORD: mediapass123
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    networks:
+      - media-network
+    restart: unless-stopped
+
+# Volumen persistente para PostgreSQL
+volumes:
+  postgres-data:
+    driver: local
+
+# Red compartida entre servicios
+networks:
+  media-network:
+    driver: bridge
